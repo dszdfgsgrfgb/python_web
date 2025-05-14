@@ -3,12 +3,37 @@ import subprocess
 import sys
 import tempfile
 import os
+import json
 
 app = Flask(__name__)
 
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/install_package', methods=['POST'])
+def install_package():
+    package = request.json.get('package')
+    if not package:
+        return jsonify({'error': 'No package specified'}), 400
+    
+    try:
+        # Run pip install in a subprocess with timeout
+        result = subprocess.run([sys.executable, '-m', 'pip', 'install', package],
+                              capture_output=True,
+                              text=True,
+                              timeout=60)
+        
+        return jsonify({
+            'output': result.stdout,
+            'error': result.stderr,
+            'returncode': result.returncode
+        })
+
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'Installation timed out (60 seconds limit)'}), 408
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/execute', methods=['POST'])
 def execute_code():
