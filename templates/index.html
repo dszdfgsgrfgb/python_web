@@ -4,56 +4,255 @@
     <title>Python Web Compiler</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #2196F3;
+            --secondary-color: #1976D2;
+            --success-color: #4CAF50;
+            --error-color: #f44336;
+            --background-color: #f5f5f5;
+            --card-background: #ffffff;
+            --text-color: #333333;
+            --border-radius: 8px;
+            --shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
         body { 
             padding: 20px; 
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background-color);
             max-width: 1200px;
             margin: 0 auto;
+            color: var(--text-color);
         }
+
         .container {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
         }
+
         .editor-container, .output-container {
-            background: white;
+            background: var(--card-background);
             padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
         }
+
         .CodeMirror {
             height: 400px;
             border: 1px solid #ddd;
             font-size: 14px;
+            border-radius: var(--border-radius);
         }
+
         #output {
             background: #2d2d2d;
             color: #fff;
             padding: 15px;
-            border-radius: 4px;
+            border-radius: var(--border-radius);
             min-height: 200px;
-            font-family: monospace;
+            font-family: 'Consolas', monospace;
             white-space: pre-wrap;
+            overflow-x: auto;
         }
+
         button {
             padding: 10px 20px;
-            background: #4CAF50;
+            background: var(--primary-color);
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: var(--border-radius);
             cursor: pointer;
             font-size: 16px;
             margin: 10px 0;
+            transition: background-color 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
         }
+
         button:hover {
-            background: #45a049;
+            background: var(--secondary-color);
         }
+
+        #getFixBtn {
+            background: var(--primary-color);
+            display: none;
+            margin-left: 10px;
+        }
+
+        .ai-modal, .chat-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .ai-modal-content, .chat-modal-content {
+            background: var(--card-background);
+            border-radius: var(--border-radius);
+            padding: 30px 24px 24px 24px;
+            min-width: 400px;
+            max-width: 90vw;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+            position: relative;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 12px;
+            right: 18px;
+            font-size: 22px;
+            color: #888;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .close-modal:hover {
+            color: var(--error-color);
+        }
+
+        .ai-response h3, .chat-modal-content h2 {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+
+        .ai-response pre {
+            background: #2d2d2d;
+            color: #fff;
+            padding: 15px;
+            border-radius: var(--border-radius);
+            margin: 10px 0;
+            font-family: 'Consolas', monospace;
+            overflow-x: auto;
+        }
+
+        #aiChatBtn {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            z-index: 1100;
+            background: var(--primary-color);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            font-size: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: transform 0.3s ease, background-color 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #aiChatBtn:hover {
+            background: var(--secondary-color);
+            transform: scale(1.1);
+        }
+
+        .chat-history {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            background: #f8f9fa;
+            border-radius: var(--border-radius);
+            padding: 15px;
+        }
+
+        .chat-message {
+            margin-bottom: 12px;
+            padding: 10px;
+            border-radius: var(--border-radius);
+            max-width: 80%;
+        }
+
+        .chat-message.user {
+            background: var(--primary-color);
+            color: white;
+            margin-left: auto;
+        }
+
+        .chat-message.ai {
+            background: #f0f0f0;
+            color: var(--text-color);
+            margin-right: auto;
+        }
+
+        .chat-input-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        #chatInput {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        #chatInput:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .chat-form button {
+            background: var(--primary-color);
+            padding: 12px 24px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 3px solid var(--primary-color);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         h1 {
-            color: #333;
+            color: var(--text-color);
             text-align: center;
             margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .header h2 {
+            margin: 0;
+            color: var(--text-color);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
         }
     </style>
 </head>
@@ -61,13 +260,60 @@
     <h1>Python Web Compiler</h1>
     <div class="container">
         <div class="editor-container">
-            <h2>Code Editor</h2>
+            <div class="header">
+                <h2>Code Editor</h2>
+                <div class="button-group">
+                    <button onclick="executeCode()">
+                        <i class="fas fa-play"></i> Run Code
+                    </button>
+                    <button id="getFixBtn" onclick="openAIModal()">
+                        <i class="fas fa-magic"></i> Get Fix
+                    </button>
+                </div>
+            </div>
             <textarea id="code">print("Hello, World!")</textarea>
-            <button onclick="executeCode()">Run Code</button>
         </div>
         <div class="output-container">
-            <h2>Output</h2>
+            <div class="header">
+                <h2>Output</h2>
+            </div>
             <div id="output"></div>
+        </div>
+    </div>
+
+    <!-- AI Error Fix Modal -->
+    <div id="aiModal" class="ai-modal">
+        <div class="ai-modal-content">
+            <span class="close-modal" onclick="closeAIModal()">&times;</span>
+            <h3><i class="fas fa-robot"></i> AI Explanation</h3>
+            <div id="aiExplanation"></div>
+            <h3><i class="fas fa-code"></i> Suggested Fix</h3>
+            <pre id="aiFixedCode"></pre>
+            <button onclick="applyFix()">
+                <i class="fas fa-check"></i> Apply Fix
+            </button>
+        </div>
+    </div>
+
+    <!-- AI Chat Floating Button -->
+    <button id="aiChatBtn" title="AI Chat">
+        <i class="fas fa-comments"></i>
+    </button>
+
+    <!-- AI Chat Modal -->
+    <div id="chatModal" class="chat-modal">
+        <div class="chat-modal-content">
+            <span class="close-modal" onclick="closeChatModal()">&times;</span>
+            <h2><i class="fas fa-robot"></i> AI Chat Assistant</h2>
+            <div class="chat-history" id="chatHistory"></div>
+            <form id="chatForm" class="chat-form" onsubmit="sendChat(event)">
+                <div class="chat-input-container">
+                    <input type="text" id="chatInput" placeholder="Ask me anything about Python..." required />
+                    <button type="submit">
+                        <i class="fas fa-paper-plane"></i> Send
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -82,13 +328,22 @@
             indentUnit: 4,
             indentWithTabs: false,
             autoCloseBrackets: true,
-            matchBrackets: true
+            matchBrackets: true,
+            lineWrapping: true
         });
+
+        let lastError = null;
+        let lastCode = null;
 
         function executeCode() {
             const code = editor.getValue();
             const outputDiv = document.getElementById('output');
-            outputDiv.innerHTML = 'Executing...';
+            const getFixBtn = document.getElementById('getFixBtn');
+            
+            outputDiv.innerHTML = '<div class="loading"></div> Executing...';
+            getFixBtn.style.display = 'none';
+            lastError = null;
+            lastCode = code;
 
             fetch('/execute', {
                 method: 'POST',
@@ -101,13 +356,142 @@
             .then(data => {
                 let output = '';
                 if (data.output) output += data.output;
-                if (data.error) output += '\nError:\n' + data.error;
+                if (data.error) {
+                    output += '\nError:\n' + data.error;
+                    lastError = data.error;
+                    getFixBtn.style.display = 'inline-flex';
+                }
                 outputDiv.innerHTML = output || 'No output';
             })
             .catch(error => {
                 outputDiv.innerHTML = 'Error: ' + error.message;
             });
         }
+
+        // AI Error Fix Modal Logic
+        function openAIModal() {
+            if (!lastError) return;
+            document.getElementById('aiModal').style.display = 'flex';
+            document.getElementById('aiExplanation').innerHTML = '<div class="loading"></div> Analyzing error...';
+            document.getElementById('aiFixedCode').innerHTML = '';
+            
+            fetch('/get_fix', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    code: lastCode,
+                    error: lastError
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById('aiExplanation').innerHTML = 'Error: ' + data.error;
+                    return;
+                }
+                document.getElementById('aiExplanation').innerHTML = data.explanation;
+                // Format the code with proper syntax highlighting
+                const formattedCode = data.fixed_code.replace(/```python\n?|\n?```/g, '');
+                document.getElementById('aiFixedCode').innerHTML = formattedCode;
+            })
+            .catch(error => {
+                document.getElementById('aiExplanation').innerHTML = 'Error: ' + error.message;
+            });
+        }
+
+        function closeAIModal() {
+            document.getElementById('aiModal').style.display = 'none';
+        }
+
+        function applyFix() {
+            const fixedCode = document.getElementById('aiFixedCode').innerText;
+            if (fixedCode) {
+                editor.setValue(fixedCode);
+                closeAIModal();
+                executeCode();
+            }
+        }
+
+        // AI Chat Modal Logic
+        const aiChatBtn = document.getElementById('aiChatBtn');
+        const chatModal = document.getElementById('chatModal');
+        const chatHistory = document.getElementById('chatHistory');
+        const chatInput = document.getElementById('chatInput');
+
+        aiChatBtn.onclick = function() {
+            chatModal.style.display = 'flex';
+            chatInput.focus();
+        };
+
+        function closeChatModal() {
+            chatModal.style.display = 'none';
+        }
+
+        function appendChatMessage(sender, text) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'chat-message ' + sender;
+            
+            // Format code blocks in the message
+            const formattedText = text.replace(/```python\n([\s\S]*?)\n```/g, 
+                '<pre><code>$1</code></pre>');
+            
+            msgDiv.innerHTML = formattedText;
+            chatHistory.appendChild(msgDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        function sendChat(e) {
+            e.preventDefault();
+            const msg = chatInput.value.trim();
+            if (!msg) return;
+
+            appendChatMessage('user', msg);
+            chatInput.value = '';
+            
+            // Add loading indicator
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'chat-message ai';
+            loadingDiv.innerHTML = '<div class="loading"></div>';
+            chatHistory.appendChild(loadingDiv);
+
+            fetch('/ai_chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: msg })
+            })
+            .then(res => res.json())
+            .then(data => {
+                // Remove loading indicator
+                chatHistory.removeChild(loadingDiv);
+                
+                if (data.error) {
+                    appendChatMessage('ai', 'Error: ' + data.error);
+                } else {
+                    appendChatMessage('ai', data.reply);
+                }
+            })
+            .catch(err => {
+                // Remove loading indicator
+                chatHistory.removeChild(loadingDiv);
+                appendChatMessage('ai', 'Error: ' + err.message);
+            });
+        }
+
+        // Close modals on outside click
+        window.onclick = function(event) {
+            if (event.target === document.getElementById('aiModal')) closeAIModal();
+            if (event.target === chatModal) closeChatModal();
+        };
+
+        // Handle Enter key in chat
+        chatInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                document.getElementById('chatForm').dispatchEvent(new Event('submit'));
+            }
+        });
     </script>
 </body>
 </html>
