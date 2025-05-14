@@ -1,207 +1,23 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Python Web Compiler</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-    <style>
-        body { 
-            padding: 20px; 
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        .container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-        .editor-container, .output-container, .package-container {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        .package-container {
-            grid-column: 1 / -1;
-        }
-        .CodeMirror {
-            height: 400px;
-            border: 1px solid #ddd;
-            font-size: 14px;
-        }
-        #output, #package-output {
-            background: #2d2d2d;
-            color: #fff;
-            padding: 15px;
-            border-radius: 4px;
-            min-height: 100px;
-            font-family: monospace;
-            white-space: pre-wrap;
-            overflow-y: auto;
-            max-height: 300px;
-        }
-        .error {
-            color: #ff6b6b;
-        }
-        button {
-            padding: 10px 20px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            margin: 10px 0;
-        }
-        button:hover {
-            background: #45a049;
-        }
-        button:disabled {
-            background: #cccccc;
-            cursor: not-allowed;
-        }
-        h1, h2 {
-            color: #333;
-        }
-        h1 {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        input[type="text"] {
-            padding: 8px;
-            width: 300px;
-            margin-right: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        .status {
-            font-size: 14px;
-            margin-left: 10px;
-            color: #666;
-        }
-    </style>
-</head>
-<body>
-    <h1>Python Web Compiler</h1>
-    <div class="package-container">
-        <h2>Install Package</h2>
-        <input type="text" id="package" placeholder="Enter package name (e.g., requests)">
-        <button id="installBtn" onclick="installPackage()">Install Package</button>
-        <span id="package-status" class="status"></span>
-        <div id="package-output"></div>
-    </div>
-    <div class="container">
-        <div class="editor-container">
-            <h2>Code Editor</h2>
-            <textarea id="code">print("Hello, World!")</textarea>
-            <button id="runBtn" onclick="executeCode()">Run Code</button>
-            <span id="execution-status" class="status"></span>
-        </div>
-        <div class="output-container">
-            <h2>Output</h2>
-            <div id="output"></div>
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="text-center">
+    <h1 class="text-4xl font-bold text-gray-900 mb-8">Welcome to Python Web App</h1>
+    <div class="bg-white shadow-lg rounded-lg p-8 max-w-2xl mx-auto">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">Get Started</h2>
+        <p class="text-gray-600 mb-6">Start using our powerful features right away.</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-blue-50 p-4 rounded-lg">
+                <h3 class="font-semibold text-blue-800 mb-2">Feature 1</h3>
+                <p class="text-blue-600">Description of feature 1.</p>
+            </div>
+            <div class="bg-green-50 p-4 rounded-lg">
+                <h3 class="font-semibold text-green-800 mb-2">Feature 2</h3>
+                <p class="text-green-600">Description of feature 2.</p>
+            </div>
         </div>
     </div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
-    <script>
-        // Initialize Socket.IO
-        const socket = io();
-        
-        // Initialize CodeMirror
-        const editor = CodeMirror.fromTextArea(document.getElementById("code"), {
-            mode: "python",
-            theme: "monokai",
-            lineNumbers: true,
-            indentUnit: 4,
-            indentWithTabs: false,
-            autoCloseBrackets: true,
-            matchBrackets: true
-        });
-
-        // Socket.IO event handlers
-        socket.on('connect', () => {
-            console.log('Connected to server');
-        });
-
-        socket.on('output', (data) => {
-            appendToOutput(data.data);
-        });
-
-        socket.on('error', (data) => {
-            appendToOutput(data.data, true);
-        });
-
-        socket.on('complete', (data) => {
-            const packageStatus = document.getElementById('package-status');
-            const executionStatus = document.getElementById('execution-status');
-            const installBtn = document.getElementById('installBtn');
-            const runBtn = document.getElementById('runBtn');
-
-            if (data.status === 'success') {
-                packageStatus.textContent = 'Complete';
-                executionStatus.textContent = 'Complete';
-            } else {
-                packageStatus.textContent = 'Failed';
-                executionStatus.textContent = 'Failed';
-            }
-
-            installBtn.disabled = false;
-            runBtn.disabled = false;
-        });
-
-        function appendToOutput(text, isError = false) {
-            const outputDiv = document.getElementById('output');
-            const packageOutputDiv = document.getElementById('package-output');
-            
-            const span = document.createElement('span');
-            span.textContent = text;
-            if (isError) span.className = 'error';
-            
-            if (text.includes('pip')) {
-                packageOutputDiv.appendChild(span);
-                packageOutputDiv.scrollTop = packageOutputDiv.scrollHeight;
-            } else {
-                outputDiv.appendChild(span);
-                outputDiv.scrollTop = outputDiv.scrollHeight;
-            }
-        }
-
-        function clearOutputs() {
-            document.getElementById('output').innerHTML = '';
-            document.getElementById('package-output').innerHTML = '';
-            document.getElementById('package-status').textContent = '';
-            document.getElementById('execution-status').textContent = '';
-        }
-
-        function installPackage() {
-            const packageName = document.getElementById('package').value;
-            if (!packageName) return;
-
-            clearOutputs();
-            const installBtn = document.getElementById('installBtn');
-            installBtn.disabled = true;
-            document.getElementById('package-status').textContent = 'Installing...';
-
-            socket.emit('install_package', { package: packageName });
-        }
-
-        function executeCode() {
-            const code = editor.getValue();
-            if (!code) return;
-
-            clearOutputs();
-            const runBtn = document.getElementById('runBtn');
-            runBtn.disabled = true;
-            document.getElementById('execution-status').textContent = 'Running...';
-
-            socket.emit('execute_code', { code: code });
-        }
-    </script>
-</body>
-</html>
+</div>
+{% endblock %}
