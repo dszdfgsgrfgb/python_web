@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Python Web Compiler</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css" rel="stylesheet">
+    <style>
+        body { 
+            padding: 20px; 
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .editor-container, .output-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .CodeMirror {
+            height: 400px;
+            border: 1px solid #ddd;
+            font-size: 14px;
+        }
+        #output {
+            background: #2d2d2d;
+            color: #fff;
+            padding: 15px;
+            border-radius: 4px;
+            min-height: 200px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Python Web Compiler</h1>
+    <div class="container">
+        <div class="editor-container">
+            <h2>Code Editor</h2>
+            <textarea id="code">print("Hello, World!")</textarea>
+            <button onclick="executeCode()">Run Code</button>
+        </div>
+        <div class="output-container">
+            <h2>Output</h2>
+            <div id="output"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
+    <script>
+        // Initialize CodeMirror
+        var editor = CodeMirror.fromTextArea(document.getElementById("code"), {
+            mode: "python",
+            theme: "monokai",
+            lineNumbers: true,
+            indentUnit: 4,
+            indentWithTabs: false,
+            autoCloseBrackets: true,
+            matchBrackets: true
+        });
+
+        function executeCode() {
+            const code = editor.getValue();
+            const outputDiv = document.getElementById('output');
+            outputDiv.innerHTML = 'Executing...';
+
+            fetch('/execute', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ code: code })
+            })
+            .then(response => response.json())
+            .then(data => {
+                let output = '';
+                if (data.output) output += data.output;
+                if (data.error) output += '\nError:\n' + data.error;
+                outputDiv.innerHTML = output || 'No output';
+            })
+            .catch(error => {
+                outputDiv.innerHTML = 'Error: ' + error.message;
+            });
+        }
+    </script>
+</body>
+</html>
