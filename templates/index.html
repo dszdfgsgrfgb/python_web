@@ -4,6 +4,7 @@
     <title>Python Web Compiler</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <style>
         body { 
             padding: 20px; 
@@ -32,14 +33,19 @@
             border: 1px solid #ddd;
             font-size: 14px;
         }
-        #output {
+        #output, #package-output {
             background: #2d2d2d;
             color: #fff;
             padding: 15px;
             border-radius: 4px;
-            min-height: 200px;
+            min-height: 100px;
             font-family: monospace;
             white-space: pre-wrap;
+            overflow-y: auto;
+            max-height: 300px;
+        }
+        .error {
+            color: #ff6b6b;
         }
         button {
             padding: 10px 20px;
@@ -53,6 +59,10 @@
         }
         button:hover {
             background: #45a049;
+        }
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
         }
         h1, h2 {
             color: #333;
@@ -68,6 +78,11 @@
             border: 1px solid #ddd;
             border-radius: 4px;
         }
+        .status {
+            font-size: 14px;
+            margin-left: 10px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -75,14 +90,16 @@
     <div class="package-container">
         <h2>Install Package</h2>
         <input type="text" id="package" placeholder="Enter package name (e.g., requests)">
-        <button onclick="installPackage()">Install Package</button>
+        <button id="installBtn" onclick="installPackage()">Install Package</button>
+        <span id="package-status" class="status"></span>
         <div id="package-output"></div>
     </div>
     <div class="container">
         <div class="editor-container">
             <h2>Code Editor</h2>
             <textarea id="code">print("Hello, World!")</textarea>
-            <button onclick="executeCode()">Run Code</button>
+            <button id="runBtn" onclick="executeCode()">Run Code</button>
+            <span id="execution-status" class="status"></span>
         </div>
         <div class="output-container">
             <h2>Output</h2>
@@ -93,8 +110,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
     <script>
+        // Initialize Socket.IO
+        const socket = io();
+        
         // Initialize CodeMirror
-        var editor = CodeMirror.fromTextArea(document.getElementById("code"), {
+        const editor = CodeMirror.fromTextArea(document.getElementById("code"), {
             mode: "python",
             theme: "monokai",
             lineNumbers: true,
@@ -104,52 +124,83 @@
             matchBrackets: true
         });
 
+        // Socket.IO event handlers
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('output', (data) => {
+            appendToOutput(data.data);
+        });
+
+        socket.on('error', (data) => {
+            appendToOutput(data.data, true);
+        });
+
+        socket.on('complete', (data) => {
+            const packageStatus = document.getElementById('package-status');
+            const executionStatus = document.getElementById('execution-status');
+            const installBtn = document.getElementById('installBtn');
+            const runBtn = document.getElementById('runBtn');
+
+            if (data.status === 'success') {
+                packageStatus.textContent = 'Complete';
+                executionStatus.textContent = 'Complete';
+            } else {
+                packageStatus.textContent = 'Failed';
+                executionStatus.textContent = 'Failed';
+            }
+
+            installBtn.disabled = false;
+            runBtn.disabled = false;
+        });
+
+        function appendToOutput(text, isError = false) {
+            const outputDiv = document.getElementById('output');
+            const packageOutputDiv = document.getElementById('package-output');
+            
+            const span = document.createElement('span');
+            span.textContent = text;
+            if (isError) span.className = 'error';
+            
+            if (text.includes('pip')) {
+                packageOutputDiv.appendChild(span);
+                packageOutputDiv.scrollTop = packageOutputDiv.scrollHeight;
+            } else {
+                outputDiv.appendChild(span);
+                outputDiv.scrollTop = outputDiv.scrollHeight;
+            }
+        }
+
+        function clearOutputs() {
+            document.getElementById('output').innerHTML = '';
+            document.getElementById('package-output').innerHTML = '';
+            document.getElementById('package-status').textContent = '';
+            document.getElementById('execution-status').textContent = '';
+        }
+
         function installPackage() {
             const packageName = document.getElementById('package').value;
-            const outputDiv = document.getElementById('package-output');
-            outputDiv.innerHTML = 'Installing package...';
+            if (!packageName) return;
 
-            fetch('/install_package', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ package: packageName })
-            })
-            .then(response => response.json())
-            .then(data => {
-                let output = '';
-                if (data.output) output += data.output;
-                if (data.error) output += '\nError:\n' + data.error;
-                outputDiv.innerHTML = output || 'Package installed successfully';
-            })
-            .catch(error => {
-                outputDiv.innerHTML = 'Error: ' + error.message;
-            });
+            clearOutputs();
+            const installBtn = document.getElementById('installBtn');
+            installBtn.disabled = true;
+            document.getElementById('package-status').textContent = 'Installing...';
+
+            socket.emit('install_package', { package: packageName });
         }
 
         function executeCode() {
             const code = editor.getValue();
-            const outputDiv = document.getElementById('output');
-            outputDiv.innerHTML = 'Executing...';
+            if (!code) return;
 
-            fetch('/execute', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ code: code })
-            })
-            .then(response => response.json())
-            .then(data => {
-                let output = '';
-                if (data.output) output += data.output;
-                if (data.error) output += '\nError:\n' + data.error;
-                outputDiv.innerHTML = output || 'No output';
-            })
-            .catch(error => {
-                outputDiv.innerHTML = 'Error: ' + error.message;
-            });
+            clearOutputs();
+            const runBtn = document.getElementById('runBtn');
+            runBtn.disabled = true;
+            document.getElementById('execution-status').textContent = 'Running...';
+
+            socket.emit('execute_code', { code: code });
         }
     </script>
 </body>
