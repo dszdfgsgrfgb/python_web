@@ -17,11 +17,15 @@
             grid-template-columns: 1fr 1fr;
             gap: 20px;
         }
-        .editor-container, .output-container {
+        .editor-container, .output-container, .package-container {
             background: white;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .package-container {
+            grid-column: 1 / -1;
         }
         .CodeMirror {
             height: 400px;
@@ -50,15 +54,30 @@
         button:hover {
             background: #45a049;
         }
-        h1 {
+        h1, h2 {
             color: #333;
+        }
+        h1 {
             text-align: center;
             margin-bottom: 30px;
+        }
+        input[type="text"] {
+            padding: 8px;
+            width: 300px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
         }
     </style>
 </head>
 <body>
     <h1>Python Web Compiler</h1>
+    <div class="package-container">
+        <h2>Install Package</h2>
+        <input type="text" id="package" placeholder="Enter package name (e.g., requests)">
+        <button onclick="installPackage()">Install Package</button>
+        <div id="package-output"></div>
+    </div>
     <div class="container">
         <div class="editor-container">
             <h2>Code Editor</h2>
@@ -84,6 +103,30 @@
             autoCloseBrackets: true,
             matchBrackets: true
         });
+
+        function installPackage() {
+            const packageName = document.getElementById('package').value;
+            const outputDiv = document.getElementById('package-output');
+            outputDiv.innerHTML = 'Installing package...';
+
+            fetch('/install_package', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ package: packageName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                let output = '';
+                if (data.output) output += data.output;
+                if (data.error) output += '\nError:\n' + data.error;
+                outputDiv.innerHTML = output || 'Package installed successfully';
+            })
+            .catch(error => {
+                outputDiv.innerHTML = 'Error: ' + error.message;
+            });
+        }
 
         function executeCode() {
             const code = editor.getValue();
