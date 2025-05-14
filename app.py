@@ -1,111 +1,114 @@
-from flask import Flask, request, render_template, jsonify
-from flask_socketio import SocketIO, emit
-import subprocess
-import sys
-import tempfile
 import os
-import json
-import threading
+from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_socketio import SocketIO
+from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
+from dotenv import load_dotenv
 
+# Load environment variables
+load_dotenv()
+
+# Initialize Flask app
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'secret!'
-socketio = SocketIO(app, cors_allowed_origins="*")
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key-here')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///app.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['UPLOAD_FOLDER'] = 'static/uploads'
 
+# Initialize extensions
+db = SQLAlchemy(app)
+socketio = SocketIO(app)
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
+
+# Models
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(128))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+# Routes
 @app.route('/')
 def index():
     return render_template('index.html')
 
-def stream_output(process, sid):
-    for line in iter(process.stdout.readline, b''):
-        socketio.emit('output', {'data': line.decode()}, room=sid)
-    process.stdout.close()
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        user = User.query.filter_by(username=request.form.get('username')).first()
+        if user and user.check_password(request.form.get('password')):
+            login_user(user)
+            return redirect(url_for('index'))
+        flash('Invalid username or password')
+    return render_template('login.html')
 
-def stream_error(process, sid):
-    for line in iter(process.stderr.readline, b''):
-        socketio.emit('error', {'data': line.decode()}, room=sid)
-    process.stderr.close()
-
-@socketio.on('install_package')
-def handle_package_install(data):
-    package = data.get('package')
-    if not package:
-        emit('error', {'data': 'No package specified'})
-        return
-
-    try:
-        process = subprocess.Popen(
-            [sys.executable, '-m', 'pip', 'install', package],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            bufsize=1,
-            universal_newlines=True
-        )
-
-        # Create threads to stream output and error in real-time
-        thread_out = threading.Thread(target=stream_output, args=(process, request.sid))
-        thread_err = threading.Thread(target=stream_error, args=(process, request.sid))
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
         
-        thread_out.start()
-        thread_err.start()
+        if User.query.filter_by(username=username).first():
+            flash('Username already exists')
+            return redirect(url_for('register'))
         
-        # Wait for the process to complete
-        process.wait()
+        if User.query.filter_by(email=email).first():
+            flash('Email already registered')
+            return redirect(url_for('register'))
         
-        thread_out.join()
-        thread_err.join()
-
-        if process.returncode == 0:
-            emit('complete', {'status': 'success'})
-        else:
-            emit('complete', {'status': 'error'})
-
-    except Exception as e:
-        emit('error', {'data': str(e)})
-
-@socketio.on('execute_code')
-def handle_code_execution(data):
-    code = data.get('code')
-    if not code:
-        emit('error', {'data': 'No code provided'})
-        return
-
-    try:
-        # Create a temporary file to store the code
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
-            f.write(code)
-            temp_file_name = f.name
-
-        process = subprocess.Popen(
-            [sys.executable, temp_file_name],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            bufsize=1,
-            universal_newlines=True
-        )
-
-        # Create threads to stream output and error in real-time
-        thread_out = threading.Thread(target=stream_output, args=(process, request.sid))
-        thread_err = threading.Thread(target=stream_error, args=(process, request.sid))
+        user = User(username=username, email=email)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
         
-        thread_out.start()
-        thread_err.start()
-        
-        # Wait for the process to complete
-        process.wait()
-        
-        thread_out.join()
-        thread_err.join()
+        login_user(user)
+        return redirect(url_for('index'))
+    return render_template('register.html')
 
-        # Clean up the temporary file
-        os.unlink(temp_file_name)
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('index'))
 
-        if process.returncode == 0:
-            emit('complete', {'status': 'success'})
-        else:
-            emit('complete', {'status': 'error'})
+# Error handlers
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('404.html'), 404
 
-    except Exception as e:
-        emit('error', {'data': str(e)})
+@app.errorhandler(500)
+def internal_error(error):
+    db.session.rollback()
+    return render_template('500.html'), 500
+
+# Socket.IO events
+@socketio.on('connect')
+def handle_connect():
+    if current_user.is_authenticated:
+        print(f'Client connected: {current_user.username}')
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    if current_user.is_authenticated:
+        print(f'Client disconnected: {current_user.username}')
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    with app.app_context():
+        db.create_all()
+    socketio.run(app, debug=True)
