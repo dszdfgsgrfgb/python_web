@@ -1,23 +1,133 @@
 {% extends "base.html" %}
 
-{% block title %}Home{% endblock %}
+{% block title %}Python Code Editor{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css" rel="stylesheet">
+<style>
+    .CodeMirror {
+        height: 300px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    #output {
+        background: #1e1e1e;
+        color: #fff;
+        padding: 15px;
+        border-radius: 4px;
+        min-height: 100px;
+        font-family: monospace;
+        white-space: pre-wrap;
+        overflow-y: auto;
+        max-height: 300px;
+    }
+    .error {
+        color: #ff6b6b;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="text-center">
-    <h1 class="text-4xl font-bold text-gray-900 mb-8">Welcome to Python Web App</h1>
-    <div class="bg-white shadow-lg rounded-lg p-8 max-w-2xl mx-auto">
-        <h2 class="text-2xl font-semibold text-gray-800 mb-4">Get Started</h2>
-        <p class="text-gray-600 mb-6">Start using our powerful features right away.</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="bg-blue-50 p-4 rounded-lg">
-                <h3 class="font-semibold text-blue-800 mb-2">Feature 1</h3>
-                <p class="text-blue-600">Description of feature 1.</p>
-            </div>
-            <div class="bg-green-50 p-4 rounded-lg">
-                <h3 class="font-semibold text-green-800 mb-2">Feature 2</h3>
-                <p class="text-green-600">Description of feature 2.</p>
-            </div>
+<div class="max-w-4xl mx-auto">
+    <h1 class="text-3xl font-bold text-gray-900 mb-6 text-center">Python Code Editor</h1>
+    
+    <!-- Package Installation -->
+    <div class="bg-white shadow-lg rounded-lg p-4 mb-6">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Install Package</h2>
+        <div class="flex flex-col sm:flex-row gap-4">
+            <input type="text" id="package" placeholder="Enter package name (e.g., requests)" 
+                class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button onclick="installPackage()" 
+                class="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                Install
+            </button>
         </div>
+        <div id="package-output" class="mt-4"></div>
+    </div>
+
+    <!-- Code Editor -->
+    <div class="bg-white shadow-lg rounded-lg p-4 mb-6">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Code Editor</h2>
+        <textarea id="code">print("Hello, World!")</textarea>
+        <button onclick="executeCode()" 
+            class="mt-4 w-full bg-green-500 text-white px-6 py-2 rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+            Run Code
+        </button>
+    </div>
+
+    <!-- Output -->
+    <div class="bg-white shadow-lg rounded-lg p-4">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Output</h2>
+        <div id="output"></div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
+<script>
+    // Initialize Socket.IO
+    const socket = io();
+    
+    // Initialize CodeMirror
+    const editor = CodeMirror.fromTextArea(document.getElementById("code"), {
+        mode: "python",
+        theme: "monokai",
+        lineNumbers: true,
+        indentUnit: 4,
+        indentWithTabs: false,
+        autoCloseBrackets: true,
+        matchBrackets: true
+    });
+
+    // Socket.IO event handlers
+    socket.on('output', (data) => {
+        appendToOutput(data.data);
+    });
+
+    socket.on('error', (data) => {
+        appendToOutput(data.data, true);
+    });
+
+    function appendToOutput(text, isError = false) {
+        const outputDiv = document.getElementById('output');
+        const packageOutputDiv = document.getElementById('package-output');
+        
+        const span = document.createElement('span');
+        span.textContent = text;
+        if (isError) span.className = 'error';
+        
+        if (text.includes('pip')) {
+            packageOutputDiv.appendChild(span);
+            packageOutputDiv.scrollTop = packageOutputDiv.scrollHeight;
+        } else {
+            outputDiv.appendChild(span);
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+        }
+    }
+
+    function clearOutputs() {
+        document.getElementById('output').innerHTML = '';
+        document.getElementById('package-output').innerHTML = '';
+    }
+
+    function installPackage() {
+        const packageName = document.getElementById('package').value;
+        if (!packageName) return;
+
+        clearOutputs();
+        socket.emit('install_package', { package: packageName });
+    }
+
+    function executeCode() {
+        const code = editor.getValue();
+        if (!code) return;
+
+        clearOutputs();
+        socket.emit('execute_code', { code: code });
+    }
+</script>
 {% endblock %}
