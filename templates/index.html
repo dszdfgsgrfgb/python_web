@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Python Web Compiler</title>
+    <title>Python Web Compiler by Shashwat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -16,6 +17,7 @@
             --text-color: #333333;
             --border-radius: 8px;
             --shadow: 0 2px 4px rgba(0,0,0,0.1);
+            --gradient: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
         }
 
         body { 
@@ -31,6 +33,24 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            .header {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .button-group {
+                width: 100%;
+                justify-content: center;
+            }
+            .ai-modal-content, .chat-modal-content {
+                min-width: 90vw;
+                margin: 10px;
+            }
         }
 
         .editor-container, .output-container {
@@ -60,27 +80,108 @@
 
         button {
             padding: 10px 20px;
-            background: var(--primary-color);
+            background: var(--gradient);
             color: white;
             border: none;
             border-radius: var(--border-radius);
             cursor: pointer;
             font-size: 16px;
             margin: 10px 0;
-            transition: background-color 0.3s ease;
+            transition: all 0.3s ease;
             display: inline-flex;
             align-items: center;
             gap: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         button:hover {
-            background: var(--secondary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
 
-        #getFixBtn {
-            background: var(--primary-color);
-            display: none;
-            margin-left: 10px;
+        .package-input {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .package-input input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            font-size: 14px;
+        }
+
+        .package-input input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .package-list {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: var(--border-radius);
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .package-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 10px;
+            background: white;
+            margin: 5px 0;
+            border-radius: var(--border-radius);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .package-item button {
+            padding: 5px 10px;
+            font-size: 12px;
+            margin: 0;
+        }
+
+        .title-container {
+            text-align: center;
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .title-container h1 {
+            color: var(--text-color);
+            font-size: 2.5em;
+            margin: 0;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: inline-block;
+        }
+
+        .title-container .subtitle {
+            color: #666;
+            font-size: 1.2em;
+            margin-top: 5px;
+        }
+
+        .title-container .author {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--primary-color);
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            .title-container .author {
+                position: static;
+                transform: none;
+                margin-top: 10px;
+            }
         }
 
         .ai-modal, .chat-modal {
@@ -254,10 +355,42 @@
             display: flex;
             gap: 10px;
         }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background: #f0f0f0;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            background: var(--gradient);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
-    <h1>Python Web Compiler</h1>
+    <div class="title-container">
+        <h1>Python Web Compiler</h1>
+        <div class="subtitle">Write, Run, and Debug Python Code Online</div>
+        <div class="author">by Shashwat</div>
+    </div>
+
     <div class="container">
         <div class="editor-container">
             <div class="header">
@@ -271,7 +404,24 @@
                     </button>
                 </div>
             </div>
-            <textarea id="code">print("Hello, World!")</textarea>
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('code')">Code</div>
+                <div class="tab" onclick="switchTab('packages')">Packages</div>
+            </div>
+            <div class="tab-content active" id="code-tab">
+                <textarea id="code">print("Hello, World!")</textarea>
+            </div>
+            <div class="tab-content" id="packages-tab">
+                <div class="package-input">
+                    <input type="text" id="packageInput" placeholder="Enter package name (e.g., numpy)" />
+                    <button onclick="installPackage()">
+                        <i class="fas fa-download"></i> Install
+                    </button>
+                </div>
+                <div class="package-list" id="packageList">
+                    <!-- Packages will be listed here -->
+                </div>
+            </div>
         </div>
         <div class="output-container">
             <div class="header">
@@ -492,6 +642,94 @@
                 document.getElementById('chatForm').dispatchEvent(new Event('submit'));
             }
         });
+
+        // Add new functions for package management
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            document.querySelector(`.tab[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+        }
+
+        function installPackage() {
+            const packageName = document.getElementById('packageInput').value.trim();
+            if (!packageName) return;
+
+            const outputDiv = document.getElementById('output');
+            outputDiv.innerHTML = `<div class="loading"></div> Installing ${packageName}...`;
+
+            fetch('/install_package', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ package: packageName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    outputDiv.innerHTML = `Error installing ${packageName}: ${data.error}`;
+                } else {
+                    outputDiv.innerHTML = `Successfully installed ${packageName}`;
+                    updatePackageList();
+                }
+            })
+            .catch(error => {
+                outputDiv.innerHTML = `Error: ${error.message}`;
+            });
+
+            document.getElementById('packageInput').value = '';
+        }
+
+        function updatePackageList() {
+            fetch('/list_packages')
+            .then(response => response.json())
+            .then(data => {
+                const packageList = document.getElementById('packageList');
+                packageList.innerHTML = data.packages.map(pkg => `
+                    <div class="package-item">
+                        <span>${pkg}</span>
+                        <button onclick="uninstallPackage('${pkg}')">
+                            <i class="fas fa-trash"></i> Remove
+                        </button>
+                    </div>
+                `).join('');
+            })
+            .catch(error => {
+                console.error('Error fetching packages:', error);
+            });
+        }
+
+        function uninstallPackage(packageName) {
+            if (!confirm(`Are you sure you want to uninstall ${packageName}?`)) return;
+
+            const outputDiv = document.getElementById('output');
+            outputDiv.innerHTML = `<div class="loading"></div> Uninstalling ${packageName}...`;
+
+            fetch('/uninstall_package', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ package: packageName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    outputDiv.innerHTML = `Error uninstalling ${packageName}: ${data.error}`;
+                } else {
+                    outputDiv.innerHTML = `Successfully uninstalled ${packageName}`;
+                    updatePackageList();
+                }
+            })
+            .catch(error => {
+                outputDiv.innerHTML = `Error: ${error.message}`;
+            });
+        }
+
+        // Initialize package list on page load
+        document.addEventListener('DOMContentLoaded', updatePackageList);
     </script>
 </body>
 </html>

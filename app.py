@@ -4,11 +4,32 @@ import sys
 import tempfile
 import os
 import requests
+import pkg_resources
+import threading
+import time
+from datetime import datetime
 
 app = Flask(__name__)
 
 GEMINI_API_KEY = 'AIzaSyA3SlVaUvDgS6FW7DUdVHuFduByaIOeDmM'
 GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
+RENDER_URL = 'https://python-web-25i2.onrender.com/'
+
+def ping_render():
+    while True:
+        try:
+            response = requests.get(RENDER_URL)
+            if response.status_code == 200:
+                print(f"[{datetime.now()}] Ping successful - Status: {response.status_code}")
+            else:
+                print(f"[{datetime.now()}] Ping failed - Status: {response.status_code}")
+        except Exception as e:
+            print(f"[{datetime.now()}] Ping error: {str(e)}")
+        time.sleep(30)  # Wait for 30 seconds
+
+# Start the ping thread
+ping_thread = threading.Thread(target=ping_render, daemon=True)
+ping_thread.start()
 
 @app.route('/')
 def index():
@@ -119,6 +140,57 @@ def ai_chat():
         response_data = response.json()
         ai_reply = response_data['candidates'][0]['content']['parts'][0]['text']
         return jsonify({'reply': ai_reply})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/install_package', methods=['POST'])
+def install_package():
+    package = request.json.get('package')
+    if not package:
+        return jsonify({'error': 'No package name provided'}), 400
+    
+    try:
+        # Install the package using pip
+        result = subprocess.run(
+            [sys.executable, '-m', 'pip', 'install', package],
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode != 0:
+            return jsonify({'error': result.stderr}), 500
+            
+        return jsonify({'message': f'Successfully installed {package}'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/uninstall_package', methods=['POST'])
+def uninstall_package():
+    package = request.json.get('package')
+    if not package:
+        return jsonify({'error': 'No package name provided'}), 400
+    
+    try:
+        # Uninstall the package using pip
+        result = subprocess.run(
+            [sys.executable, '-m', 'pip', 'uninstall', '-y', package],
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode != 0:
+            return jsonify({'error': result.stderr}), 500
+            
+        return jsonify({'message': f'Successfully uninstalled {package}'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/list_packages', methods=['GET'])
+def list_packages():
+    try:
+        # Get list of installed packages
+        installed_packages = [pkg.key for pkg in pkg_resources.working_set]
+        return jsonify({'packages': installed_packages})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
